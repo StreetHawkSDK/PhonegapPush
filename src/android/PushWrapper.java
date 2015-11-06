@@ -87,6 +87,7 @@ public class PushWrapper extends Service implements ISHObserver{
 	}
 
 	public void shNotifyAppPage(String pageName){
+		Log.e("Anurag","shNotifyAppPage "+mNotifyNewPageCallback);
 		if(null!=mNotifyNewPageCallback){
 			PluginResult result = new PluginResult(PluginResult.Status.OK,pageName);
 			result.setKeepCallback(true);
