@@ -101,8 +101,7 @@
         <header-file src="src/ios/SDK/ThirdParty/Emojione/Emojione.h" />
         <source-file src="src/ios/SDK/ThirdParty/Emojione/Emojione.m" />
         
-        <!-- Add frameworks -->
-        <framework src="libsqlite3.dylib" />        
+        <!-- Add frameworks -->       
         <framework src="QuartzCore.framework" />
         
 	</platform>
