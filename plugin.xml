@@ -86,6 +86,8 @@
         <source-file src="src/ios/SDK/Notification/Internal/SHNotificationHandler.m" />  
         <header-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.h" />
         <source-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.m" />   
+        <header-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.h" />
+        <source-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.m" />
         <header-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.h" />
         <source-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.m" />
         <header-file src="src/ios/SDK/Notification/Private/SHSlideWebViewController.h" />
