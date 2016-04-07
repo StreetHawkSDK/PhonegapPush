@@ -26,10 +26,10 @@
  */
 enum SHNotificationActionResult
 {
-    SHNotificationActionResult_Unknown,
-    SHNotificationActionResult_Yes,
-    SHNotificationActionResult_NO,
-    SHNotificationActionResult_Later,
+    SHNotificationActionResult_Unknown = 0,
+    SHNotificationActionResult_Yes = 1,
+    SHNotificationActionResult_NO = 2,
+    SHNotificationActionResult_Later = 3,
 };
 typedef enum SHNotificationActionResult SHNotificationActionResult;
 
@@ -48,23 +48,6 @@ typedef enum SHNotificationType SHNotificationType;
  StreetHawk notification handler for dealing with remote or local notifications.
  */
 @interface SHNotificationHandler : NSObject
-
-/**
- System defined some code and actions, register by default. 
- */
-- (NSMutableSet *)registerDefinedCategoryAndActions;
-
-/**
- Add one category to a set. Note: if set has same category id already, remove existing category from set and add this new one. This is because only the first category id take effect, if want newly added category work, the set cannot have same category id ahead.
- @param category Newly added category, cannot be nil.
- @param set The modified set, cannot be nil.
- */
-- (void)addCategory:(UIUserNotificationCategory *)category toSet:(NSMutableSet *)set;
-
-/**
- App delegate for click button get action id, convert it to be action type.
- */
-- (SHNotificationActionResult)actionResultFromId:(NSString *)actionId;
 
 /**
  Check whether this push is from StreetHawk's defined code. If yes process StreetHawk's handling, if no should just return.

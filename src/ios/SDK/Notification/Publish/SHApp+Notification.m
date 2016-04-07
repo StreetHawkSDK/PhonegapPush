@@ -19,10 +19,12 @@
 //header from StreetHawk
 #import "SHNotificationHandler.h"
 #import "SHFriendlyNameObject.h"
+#import "InteractivePush.h"
 #import "SHInstallHandler.h" //for registerForNotificationAndNotifyServer
 #import "SHUtils.h"  //for SHLog
-#import "SHRequest.h" //for sending request
+#import "SHHTTPSessionManager.h" //for sending request
 #import "SHAppStatus.h" //for appStatusChange
+#import "SHInteractiveButtons.h" //for interactive pair buttons
 //header from System
 #import <objc/runtime.h> //for associate object
 
@@ -37,7 +39,6 @@
 @dynamic isDefaultNotificationEnabled;
 @dynamic isNotificationEnabled;
 @dynamic notificationTypes;
-@dynamic notificationCategories;
 @dynamic notificationHandler;
 @dynamic arrayCustomisedHandler;
 @dynamic arrayPGObservers;
@@ -88,16 +89,6 @@
     objc_setAssociatedObject(self, @selector(notificationTypes), [NSNumber numberWithUnsignedInteger:notificationTypes], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-- (NSSet *)notificationCategories
-{
-    return objc_getAssociatedObject(self, @selector(notificationCategories));
-}
-
-- (void)setNotificationCategories:(NSSet *)notificationCategories
-{
-    objc_setAssociatedObject(self, @selector(notificationCategories), notificationCategories, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
 - (SHNotificationHandler *)notificationHandler
 {
     return objc_getAssociatedObject(self, @selector(notificationHandler));
@@ -144,6 +135,59 @@
 }
 
 #pragma mark - public functions
+
+- (BOOL)setInteractivePushBtnPairs:(NSArray *)arrayPairs
+{
+    if (!streetHawkIsEnabled())
+    {
+        return NO;
+    }
+    //clean and save whole user customized pairs.
+    NSMutableArray *array = [NSMutableArray array];
+    for (InteractivePush *obj in arrayPairs)
+    {
+        NSAssert(!shStrIsEmpty(obj.pairTitle), @"pairTitle shouldn't be empty.");
+        if (shStrIsEmpty(obj.pairTitle))
+        {
+            SHLog(@"WARNING: pairTitle shouldn't be empty.");
+            return NO;
+        }
+        if ([SHInteractiveButtons pairTitle:obj.pairTitle andButton1:nil andButton2:nil isUsed:array] || [SHInteractiveButtons pairTitle:obj.pairTitle andButton1:nil andButton2:nil isUsed:[SHInteractiveButtons predefinedLocalPairs]])
+        {
+            SHLog(@"WARNING: pairTitle \"%@\" is already used, please choose another one.", obj.pairTitle);
+            return NO;
+        }
+        NSAssert(!shStrIsEmpty(obj.b1Title) || !shStrIsEmpty(obj.b2Title), @"b1 and b2 cannot both empty.");
+        if (shStrIsEmpty(obj.b1Title) && shStrIsEmpty(obj.b2Title))
+        {
+            SHLog(@"WARNING: b1 and b2 cannot both empty.");
+            return NO;
+        }
+        NSMutableDictionary *dictPair = [NSMutableDictionary dictionary];
+        dictPair[SH_INTERACTIVEPUSH_PAIR] = NONULL(obj.pairTitle);
+        dictPair[SH_INTERACTIVEPUSH_BUTTON1] = NONULL(obj.b1Title);
+        dictPair[SH_INTERACTIVEPUSH_BUTTON2] = NONULL(obj.b2Title);
+        [array addObject:dictPair];
+    }
+    //Not check whether it's changed, when upgrade client App version it must submit again whatever the pair is changed or not.
+    //A concern is submit too much. System predefined only submit when app_status/submit_interactive_button=1, client only submit in debug mode, so wide used production will not submit too much.
+    if (arrayPairs.count > 0) //system automatically submit should not override customer's.
+    {
+        [[NSUserDefaults standardUserDefaults] setObject:array forKey:SH_INTERACTIVEPUSH_KEY]; //remember customer's.
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    //Re-register categories locally.
+    [self registerForNotificationAndNotifyServer];
+    //Following should NOT trigger on an Apple Store version, it should ONLY happen on debug.
+    if (StreetHawk.isDebugMode && shAppMode() != SHAppMode_AppStore && shAppMode() != SHAppMode_Enterprise /*Some customer always set debug mode = YES, but AppStore version should not always send friendly names*/
+        && ([UIApplication sharedApplication].applicationState != UIApplicationStateBackground)/*avoid send when App wake up in background. Here cannot use Active, its status is InActive for normal launch, Background for location launch.*/)
+    {
+        //In debug mode, each "setInteractivePushBtnPairs" do submit regardless "submit_interactive_button"; in production mode, only submit when "submit_interactive_button"=true.
+        //By doing this, SDK user won't feel inconvenient when debugging App, because pair submitted without any condition; final release won't submit useless request (actually final release won't submit any request, because debug mode fill that client_version).
+        [SHInteractiveButtons submitInteractivePairButtons];
+    }
+    return YES;
+}
 
 - (void)registerForNotificationAndNotifyServer
 {
@@ -204,13 +248,16 @@
             {
                 StreetHawk.notificationTypes = (UIUserNotificationTypeAlert | UIUserNotificationTypeBadge | UIUserNotificationTypeSound); //compatible for pre-iOS 8 user settings.
             }
-            NSMutableSet *categories = [StreetHawk.notificationHandler registerDefinedCategoryAndActions];
-            if (StreetHawk.notificationCategories != nil && StreetHawk.notificationCategories.count > 0)
+            NSMutableSet *categories = [NSMutableSet set];
+            if (StreetHawk.developmentPlatform != SHDevelopmentPlatform_Unity) //Unity sample AngryBots: if App not launch, send push, click action button App will hang. It not happen if click banner, it not happen if App already launch and in BG. To avoid this stop working issue, Unity not have action button.
             {
-                for (UIUserNotificationCategory *category in StreetHawk.notificationCategories)
+                //Add system predefined categories first
+                for (SHInteractiveButtons *obj in [SHInteractiveButtons predefinedPairs])
                 {
-                    [StreetHawk.notificationHandler addCategory:category toSet:categories];
+                    [SHInteractiveButtons addCategory:[obj createNotificationCategory] toSet:categories];
                 }
+                //Read customized button pairs and add to categories too.
+                [SHInteractiveButtons addCustomisedButtonPairsToSet:categories];
             }
             UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:StreetHawk.notificationTypes categories:categories];
             [application registerUserNotificationSettings:settings];
@@ -285,7 +332,7 @@
     BOOL isDefinedCode = [StreetHawk.notificationHandler isDefinedCode:userInfo];
     if (isDefinedCode)
     {
-        SHNotificationActionResult action = [StreetHawk.notificationHandler actionResultFromId:identifier];
+        SHNotificationActionResult action = [identifier intValue]; //defined code uses `action` as identifier.
         NSAssert(action != SHNotificationActionResult_Unknown, @"Unknown action id for defined payload: %@.", userInfo);
         [StreetHawk.notificationHandler handleDefinedUserInfo:userInfo withAction:action treatAppAs:SHAppFGBG_BG/*this only trigger when App in BG, now app state is inactive*/ forNotificationType:SHNotificationType_Remote];
     }
@@ -318,7 +365,7 @@
         BOOL isDefinedCode = [StreetHawk.notificationHandler isDefinedCode:notification.userInfo];
         if (isDefinedCode)
         {
-            SHNotificationActionResult action = [StreetHawk.notificationHandler actionResultFromId:identifier];
+            SHNotificationActionResult action = [identifier intValue]; //defined code uses `action` as identifier.
             NSAssert(action != SHNotificationActionResult_Unknown, @"Unknown action id for defined payload: %@.", notification.userInfo);
             [StreetHawk.notificationHandler handleDefinedUserInfo:notification.userInfo withAction:action treatAppAs:SHAppFGBG_BG/*this only trigger when App in BG, now app state is inactive*/ forNotificationType:SHNotificationType_Local];
         }
@@ -361,22 +408,23 @@
         }
         return;
     }
-    SHRequest *request = [SHRequest requestWithPath:@"installs/alert_settings/" withVersion:SHHostVersion_V1 withParams:nil withMethod:@"POST" withHeaders:nil withBodyOrStream:@[@"pause_minutes", @(pauseMinutes)]];
     handler = [handler copy];
-    request.requestHandler = ^(SHRequest *saveRequest)
+    [[SHHTTPSessionManager sharedInstance] POST:@"installs/alert_settings/" hostVersion:SHHostVersion_V1 body:@{@"pause_minutes": @(pauseMinutes)} success:^(NSURLSessionDataTask * _Nullable task, id  _Nullable responseObject)
     {
-        if (saveRequest.error == nil)
-        {
-            //save local cache
-            [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:pauseMinutes] forKey:ALERTSETTINGS_MINUTES];
-            [[NSUserDefaults standardUserDefaults] synchronize];
-        }
+        //save local cache
+        [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:pauseMinutes] forKey:ALERTSETTINGS_MINUTES];
+        [[NSUserDefaults standardUserDefaults] synchronize];
         if (handler)
         {
-            handler(nil, saveRequest.error);
+            handler(nil, nil);
         }
-    };
-    [request startAsynchronously];
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nullable error)
+    {
+        if (handler)
+        {
+            handler(nil, error);
+        }
+    }];
 }
 
 - (NSInteger)getAlertSettingMinutes
@@ -404,33 +452,34 @@
         return;
     }
     //server should have record, read calculated value from server.
-    SHRequest *request = [SHRequest requestWithPath:@"installs/alert_settings/"];
     handler = [handler copy];
-    request.requestHandler = ^(SHRequest *loadRequest)
+    [[SHHTTPSessionManager sharedInstance] GET:@"installs/alert_settings/" hostVersion:SHHostVersion_V1 parameters:nil success:^(NSURLSessionDataTask * _Nullable task, id  _Nullable responseObject)
     {
         NSDate *pauseUntil = nil;
-        NSError *error = loadRequest.error;
-        if (loadRequest.error == nil)
+        NSError *error = nil;
+        NSAssert(responseObject != nil && [responseObject isKindOfClass:[NSDictionary class]], @"Load from server get wrong result value: %@.", responseObject);  //load request suppose to get json dictionary
+        if (responseObject != nil && [responseObject isKindOfClass:[NSDictionary class]])
         {
-            NSAssert(loadRequest.resultValue != nil && [loadRequest.resultValue isKindOfClass:[NSDictionary class]], @"Load from server get wrong result value: %@.", loadRequest.resultValue);  //load request suppose to get json dictionary
-            if (loadRequest.resultValue != nil && [loadRequest.resultValue isKindOfClass:[NSDictionary class]])
-            {
-                pauseUntil = shParseDate(((NSDictionary *)loadRequest.resultValue)[@"pause_until"], 0);
-                //By the way, sync minute local cache
-                [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:[((NSDictionary *)loadRequest.resultValue)[@"pause_minutes"] integerValue]] forKey:ALERTSETTINGS_MINUTES];
-                [[NSUserDefaults standardUserDefaults] synchronize];
-            }
-            else
-            {
-                error = [NSError errorWithDomain:SHErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Load from server get wrong result value: %@.", loadRequest.resultValue]}];
-            }
+            pauseUntil = shParseDate(((NSDictionary *)responseObject)[@"pause_until"], 0);
+            //By the way, sync minute local cache
+            [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInteger:[((NSDictionary *)responseObject)[@"pause_minutes"] integerValue]] forKey:ALERTSETTINGS_MINUTES];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+        }
+        else
+        {
+            error = [NSError errorWithDomain:SHErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Load from server get wrong result value: %@.", responseObject]}];
         }
         if (handler)
         {
             handler(pauseUntil, error);
         }
-    };
-    [request startAsynchronously];
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nullable error)
+    {
+        if (handler)
+        {
+            handler(nil, error);
+        }
+    }];
 }
 
 - (void)shSetCustomiseHandler:(id<ISHCustomiseHandler>)handler
