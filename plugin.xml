@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<plugin id="com.streethawk.push" version="1.7.4" xmlns="http://apache.org/cordova/ns/plugins/1.0"
+<plugin id="com.streethawk.push" version="1.8.0" xmlns="http://apache.org/cordova/ns/plugins/1.0"
 	xmlns:android="http://schemas.android.com/apk/res/android">
 	<name>StreetHawkPush</name>
 	<description> StreetHawk SDK plugin for sending push notification to your applications</description>	    
@@ -69,6 +69,13 @@
                 <action android:name="com.google.android.gms.iid.InstanceID"/>
             </intent-filter>
         </service>
+        
+       <service
+            android:name="com.streethawk.push.PushWrapper"
+            android:enabled="true"
+            android:exported="true" >
+        </service>
+        
 		   </config-file>   
 		<source-file src="src/android/streethawkpush.jar" target-dir="libs/"/>
 		<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk"/>
