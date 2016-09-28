@@ -626,12 +626,13 @@ NSString * const SHNMNotification_kPayload = @"Payload";
     NSString *storedView = [[NSUserDefaults standardUserDefaults] objectForKey:PHONEGAP_8004_PAGE];
     if (storedView != nil && storedView.length > 0)
     {
-        NSDictionary *dictPushData = [[NSUserDefaults standardUserDefaults] objectForKey:PHONEGAP_8004_PUSHDATA];
-        if (dictPushData != nil && [dictPushData isKindOfClass:[NSDictionary class]])
-        {
-            PushDataForApplication *pushData = [PushDataForApplication fromDictionary:dictPushData];
-            [pushData sendPushResult:SHResult_Accept withHandler:nil];
-        }
+        //This API is used by Phonegap and Ti to get 8004 page when App is in BG or from not launch. However iOS can handle them in notification. Still keep this API but not send pushData to avoid duplication.
+        //NSDictionary *dictPushData = [[NSUserDefaults standardUserDefaults] objectForKey:PHONEGAP_8004_PUSHDATA];
+        //if (dictPushData != nil && [dictPushData isKindOfClass:[NSDictionary class]])
+        //{
+        //    PushDataForApplication *pushData = [PushDataForApplication fromDictionary:dictPushData];
+        //    [pushData sendPushResult:SHResult_Accept withHandler:nil];
+        //}
         //clear local stored views to avoid next launch
         [[NSUserDefaults standardUserDefaults] setObject:@"" forKey:PHONEGAP_8004_PAGE];
         [[NSUserDefaults standardUserDefaults] setObject:@"" forKey:PHONEGAP_8004_PUSHDATA];
