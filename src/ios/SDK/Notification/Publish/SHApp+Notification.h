@@ -18,6 +18,8 @@
 #import "SHApp.h" //for extension SHApp
 #import "ISHCustomiseHandler.h" //for protocol
 #import "ISHPhonegapObserver.h" //for protocol
+//header from System
+#import <UserNotifications/UserNotifications.h>  //for notification since iOS 10
 
 @class SHNotificationHandler;
 
@@ -34,7 +36,7 @@ extern NSString * const SHNMNotification_kPayload; //string @"Payload", get NSDi
 /**
  Extension for Notification API.
  */
-@interface SHApp (NotificationExt)
+@interface SHApp (NotificationExt) <UNUserNotificationCenterDelegate>
 
 /**
  Default value to initialise `isNotificationEnabled`, it's called once when App first launch to set to `isNotificationEnabled`. A typical usage is to delay asking for notification permission:
@@ -113,6 +115,20 @@ extern NSString * const SHNMNotification_kPayload; //string @"Payload", get NSDi
  Get current saved apns device token as NSString.
  */
 - (NSString *)apnsDeviceToken;
+
+/**
+ Since iOS 10 notification handler when App in foreground. If customer want to change to his own, just switch [UNUserNotificationCenter currentNotificationCenter].delegate = <custoemr's_own_delegate>.
+ @param notification User notification received.
+ @param completionHandler Pass in system's to finish when task is done.
+ */
+- (void)handleUserNotificationInFG:(UNNotification *)notification completionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler;
+
+/**
+ Since iOS 10 notification handler when App in background. If customer want to change to his own, just switch [UNUserNotificationCenter currentNotificationCenter].delegate = <custoemr's_own_delegate>.
+ @param response User notification response received.
+ @param completionHandler Pass in system's to finish when task is done.
+ */
+- (void)handleUserNotificationInBG:(UNNotificationResponse *)response completionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler;
 
 /**
  Customer Application should implement this in UIApplicationDelegate to forward handling to StreetHawk library if NOT auto-integrate. If `StreetHawk.autoIntegrateAppDelegate = YES;` make sure NOT call this otherwise cause dead loop. Code snippet:

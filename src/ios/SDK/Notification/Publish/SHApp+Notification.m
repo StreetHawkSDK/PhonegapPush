@@ -124,17 +124,8 @@ NSString * const SHNMNotification_kPayload = @"Payload";
 
 - (BOOL)systemPreferenceDisableNotification
 {
-    BOOL notificationDisabled;
     UIApplication *application = [UIApplication sharedApplication];
-    if ([[UIDevice currentDevice].systemVersion doubleValue] >= 8.0)
-    {
-        notificationDisabled = (!application.isRegisteredForRemoteNotifications || (application.currentUserNotificationSettings.types == UIUserNotificationTypeNone));
-    }
-    else
-    {
-        notificationDisabled = (application.enabledRemoteNotificationTypes == UIRemoteNotificationTypeNone || application.enabledRemoteNotificationTypes == UIRemoteNotificationTypeNewsstandContentAvailability/*this is not settable in UI*/);
-    }
-    return notificationDisabled;
+    return (!application.isRegisteredForRemoteNotifications || (application.currentUserNotificationSettings.types == UIUserNotificationTypeNone));
 }
 
 #pragma mark - public functions
@@ -201,14 +192,7 @@ NSString * const SHNMNotification_kPayload = @"Payload";
     if (!notificationDisabled)
     {
         //customer not disable it, check system settings
-        if ([[UIDevice currentDevice].systemVersion doubleValue] >= 8.0)
-        {
-            notificationDisabled = (!application.isRegisteredForRemoteNotifications || (application.currentUserNotificationSettings.types == UIUserNotificationTypeNone));
-        }
-        else
-        {
-            notificationDisabled = (application.enabledRemoteNotificationTypes == UIRemoteNotificationTypeNone/*none type enabled means it's turn off. when App first launch, even enabled before and no permission dialog promote, it gets 0, but does not matter as next set access token clean it; and it never happen in next launch.*/ || application.enabledRemoteNotificationTypes == UIRemoteNotificationTypeNewsstandContentAvailability/*this is not settable in UI*/);
-        }
+        notificationDisabled = (!application.isRegisteredForRemoteNotifications || (application.currentUserNotificationSettings.types == UIUserNotificationTypeNone));
         if (notificationDisabled)
         {
             SHLog(@"Notification is disabled by system preferrence settings, or fail to configure in project.");
@@ -245,13 +229,13 @@ NSString * const SHNMNotification_kPayload = @"Payload";
     if (StreetHawk.isNotificationEnabled)  //not call this for customer disable notification to avoid permission message, work both for remote and location notification.
     {
         //No matter system enabled or disabled, register it. For a fresh new App system is not enabled, if check `notificationDisabled` it will never register notification.
-        if ([application respondsToSelector:@selector(registerUserNotificationSettings:)])  //iOS 8 uses totally new way to register remote notification.
+        if ([[UIDevice currentDevice].systemVersion doubleValue] < 10.0)
         {
             if (StreetHawk.notificationTypes > (UIUserNotificationTypeAlert | UIUserNotificationTypeBadge | UIUserNotificationTypeSound))
             {
                 StreetHawk.notificationTypes = (UIUserNotificationTypeAlert | UIUserNotificationTypeBadge | UIUserNotificationTypeSound); //compatible for pre-iOS 8 user settings.
             }
-            NSMutableSet *categories = [NSMutableSet set];
+            NSMutableSet<UIUserNotificationCategory *> *categories = [NSMutableSet set];
             if (StreetHawk.developmentPlatform != SHDevelopmentPlatform_Unity) //Unity sample AngryBots: if App not launch, send push, click action button App will hang. It not happen if click banner, it not happen if App already launch and in BG. To avoid this stop working issue, Unity not have action button.
             {
                 //Add system predefined categories first
@@ -264,12 +248,44 @@ NSString * const SHNMNotification_kPayload = @"Payload";
             }
             UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:StreetHawk.notificationTypes categories:categories];
             [application registerUserNotificationSettings:settings];
-            SHLog(@"Register user notification since iOS 8.");
+            SHLog(@"Register user notification pre iOS 10.");
         }
         else
         {
-            [[UIApplication sharedApplication] registerForRemoteNotificationTypes:StreetHawk.notificationTypes];
-            SHLog(@"Register remote notification before iOS 8.");
+            UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+            //not use SHInterceptor here. As center.delegate is standalone from AppDelegate and specific for iOS 10 notification, if customer would like to use his own, he can do override; if customer not want to override, just keep same. It's not related to "StreetHawk.autoIntegrateAppDelegate" too.
+            if (center.delegate == nil)
+            {
+                center.delegate = StreetHawk; //in case customer not set, do it by StreetHawk.
+            }
+            NSMutableSet<UNNotificationCategory *> *categories = [NSMutableSet set];
+            if (StreetHawk.developmentPlatform != SHDevelopmentPlatform_Unity) //Unity sample AngryBots: if App not launch, send push, click action button App will hang. It not happen if click banner, it not happen if App already launch and in BG. To avoid this stop working issue, Unity not have action button.
+            {
+                //Add system predefined categories first
+                for (SHInteractiveButtons *obj in [SHInteractiveButtons predefinedPairs])
+                {
+                    [SHInteractiveButtons addUNCategory:[obj createUNNotificationCategory] toSet:categories];
+                }
+                //Read customized button pairs and add to categories too.
+                [SHInteractiveButtons addUNCustomisedButtonPairsToSet:categories];
+            }
+            [center setNotificationCategories:categories];
+            if (StreetHawk.notificationTypes > (UNAuthorizationOptionAlert | UNAuthorizationOptionBadge | UNAuthorizationOptionSound))
+            {
+                StreetHawk.notificationTypes = (UNAuthorizationOptionAlert | UNAuthorizationOptionBadge | UNAuthorizationOptionSound); //compatible for pre-iOS 8 user settings.
+            }
+            [center requestAuthorizationWithOptions:(StreetHawk.notificationTypes) completionHandler:^(BOOL granted, NSError * _Nullable error)
+             {
+                 if(!error)
+                 {
+                     [application registerForRemoteNotifications];
+                     SHLog(@"Register remote notification since iOS 10.");
+                 }
+                 else
+                 {
+                     SHLog(@"Fail to register remote notification since iOS 10. Error: %@.", error);
+                 }  
+             }];  
         }
     }
 }
@@ -279,7 +295,7 @@ NSString * const SHNMNotification_kPayload = @"Payload";
     if (settings.types != UIUserNotificationTypeNone)
     {
         [[UIApplication sharedApplication] registerForRemoteNotifications];
-        SHLog(@"Register remote notification since iOS 8.");
+        SHLog(@"Register remote notification pre iOS 10.");
     }
 }
 
@@ -315,6 +331,64 @@ NSString * const SHNMNotification_kPayload = @"Payload";
 - (NSString *)apnsDeviceToken
 {
     return [[NSUserDefaults standardUserDefaults] objectForKey:APNS_DEVICE_TOKEN];
+}
+
+- (void)handleUserNotificationInFG:(UNNotification *)notification completionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler
+{
+    BOOL isDefinedCode = [StreetHawk.notificationHandler isDefinedCode:notification.request.content.userInfo];
+    if (isDefinedCode)
+    {
+        SHNotificationType notificationType;
+        if ([notification.request.trigger isKindOfClass:[UNPushNotificationTrigger class]])
+        {
+            notificationType = SHNotificationType_Remote;
+        }
+        else
+        {
+            notificationType = SHNotificationType_Local;
+        }
+        [StreetHawk.notificationHandler handleDefinedUserInfo:notification.request.content.userInfo withAction:SHNotificationActionResult_Unknown treatAppAs:SHAppFGBG_FG forNotificationType:notificationType];
+    }
+    else
+    {
+        [[NSNotificationCenter defaultCenter] postNotificationName:SHNMOtherPayloadNotification object:nil userInfo:@{SHNMNotification_kPayload: notification.request.content.userInfo}];
+    }
+    if (completionHandler != nil)
+    {
+        completionHandler(UNNotificationPresentationOptionNone);
+    }
+}
+
+- (void)handleUserNotificationInBG:(UNNotificationResponse *)response completionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler
+{
+    BOOL isDefinedCode = [StreetHawk.notificationHandler isDefinedCode:response.notification.request.content.userInfo];
+    if (isDefinedCode)
+    {
+        SHNotificationType notificationType;
+        if ([response.notification.request.trigger isKindOfClass:[UNPushNotificationTrigger class]])
+        {
+            notificationType = SHNotificationType_Remote;
+        }
+        else
+        {
+            notificationType = SHNotificationType_Local;
+        }
+        SHNotificationActionResult actionResult = SHNotificationActionResult_Unknown;
+        if ([response.actionIdentifier compare:UNNotificationDefaultActionIdentifier] != NSOrderedSame
+            && [response.actionIdentifier compare:UNNotificationDismissActionIdentifier] != NSOrderedSame)
+        {
+            actionResult = [response.actionIdentifier intValue]; //defined code uses `action` as identifier.
+        }
+        [StreetHawk.notificationHandler handleDefinedUserInfo:response.notification.request.content.userInfo withAction:actionResult treatAppAs:SHAppFGBG_BG forNotificationType:notificationType];
+    }
+    else
+    {
+        [[NSNotificationCenter defaultCenter] postNotificationName:SHNMOtherPayloadNotification object:nil userInfo:@{SHNMNotification_kPayload: response.notification.request.content.userInfo}];
+    }
+    if (completionHandler != nil)
+    {
+        completionHandler(UNNotificationPresentationOptionNone);
+    }
 }
 
 - (void)handleRemoteNotification:(NSDictionary *)userInfo treatAppAs:(SHAppFGBG)appFGBG needComplete:(BOOL)needComplete fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler
@@ -419,11 +493,13 @@ NSString * const SHNMNotification_kPayload = @"Payload";
 
 - (void)shSetAlertSetting:(NSInteger)pauseMinutes finish:(SHCallbackHandler)handler
 {
-    if (StreetHawk.currentInstall.suid == nil || StreetHawk.currentInstall.suid.length == 0)
+    if (shStrIsEmpty(StreetHawk.currentInstall.suid))
     {
+        SHLog(@"Warning: Set alert settings must have install id.");
         if (handler)
         {
-            handler(nil, [NSError errorWithDomain:SHErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey: @"Not install to server."}]);
+            NSError *error = [NSError errorWithDomain:SHErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey: @"Parameter installid needed to determine Install."}];
+            handler(nil, error);
         }
         return;
     }
@@ -571,6 +647,22 @@ NSString * const SHNMNotification_kPayload = @"Payload";
     {
         [observer shPGDisplayHtmlFileName:htmlFile];
     }
+}
+
+#pragma mark - UNUserNotificationCenterDelegate handler
+
+//since iOS 10 this function is called for both remote notification and local notification when App is in foreground. It hides all other delegate calls.
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler
+{
+    //center.delegate is standalone from AppDelegate, which user can choose to use his own or StreetHawk's. Not do interrupt.
+    //As it doesn't depend on StreetHawk.appDelegateInterceptor, it can move to Notification module directly.
+    //iOS 10 new system delegates cover many other previous deprecated delegates (both remote and local, both click banner and click button etc), to make things simple it does not consider try calling the deprecated delegates any more. It only calls the corresponding delegates in customer App's code.
+    [StreetHawk handleUserNotificationInFG:notification completionHandler:completionHandler];
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)())completionHandler
+{
+    [StreetHawk handleUserNotificationInBG:response completionHandler:completionHandler];
 }
 
 @end

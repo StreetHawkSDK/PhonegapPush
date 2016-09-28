@@ -27,10 +27,6 @@
 #import "SHUtils.h" //for shLocalizedString
 #import "SHTypes.h" //for SH_BEACON_BLUETOOTH
 #import "SHInteractiveButtons.h" //for interactive pair buttons
-//header from System
-#import <CoreBluetooth/CoreBluetooth.h>
-//header from Third-party
-#import "Emojione.h" //for convert emoji to unicode
 
 @interface SHNotificationHandler ()
 
@@ -156,15 +152,15 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
                         {
                             titleLength = alert.length;
                         }
-                        pushData.title = [Emojione shortnameToUnicode:[[alert substringToIndex:titleLength] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]];
-                        pushData.message = [Emojione shortnameToUnicode:[[alert substringFromIndex:titleLength] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]];
+                        pushData.title = [[alert substringToIndex:titleLength] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        pushData.message = [[alert substringFromIndex:titleLength] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                     }
                 }
             }
         }
     }
     //Send pushack for remote notification when enable background mode. Pushack is sent no matter App in FG or BG as much as possible, although if a) user kill App b) device restart cannot wake App.
-    pushData.msgID = [NONULL(userInfo[Push_Payload_MsgId]) integerValue];
+    pushData.msgID = [NSString stringWithFormat:@"%@", userInfo[Push_Payload_MsgId]]; //server returns is int actually, make sure client use a string.
     pushData.data = userInfo[Push_Payload_Data];
     if ([pushData.data isKindOfClass:[NSString class]])  //cannot assume data is string, as 8011, 8049 send dictionary
     {
@@ -182,7 +178,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
     }
     if (notificationType == SHNotificationType_Remote || notificationType == SHNotificationType_SmartPush) //these two are sent from server so must send pushack back
     {
-        NSAssert(pushData.msgID != 0, @"Fail to get msg id from %@.", userInfo);
+        NSAssert(!shStrIsEmpty(pushData.msgID), @"Fail to get msg id from %@.", userInfo);
         //Send pushack logline
         [StreetHawk sendLogForCode:LOG_CODE_PUSH_ACK withComment:[NSString stringWithFormat:@"%@", pushData.data]/*treat data as string*/ forAssocId:pushData.msgID withResult:100/*ignore*/ withHandler:nil]; //Cannot send pushack immediately at background. In order to send at background must use background mode with "content-available:1" and let it execute in background, however once App execute in background, the badge and notification list entry is lost, causing user cannot find this notification any more. It cannot trigger local notification again to add the badge and entry as it will promote twice. Use silent remote notification and local notification does not work either, as silent remote notification cannot wake App when user kill App or device restart, causing lose message.
     }
@@ -287,7 +283,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
             jsonString = shSerializeObjToJson(pushData.data);
             if (shStrIsEmpty(jsonString))
             {
-                [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Error: Meet error when serialize %@ to json. Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100 withHandler:nil];
+                [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Error: Meet error when serialize %@ to json. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100 withHandler:nil];
                  jsonString = [NSString stringWithFormat:@"%@", pushData.data]; //still try to pass to customer handler.
             }            
         }
@@ -295,7 +291,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
         {
             NSAssert(NO, @"data is not string or dictionary: %@.", pushData.data);
             //Although this error logline sent, it will continue to handle jsonString and send push result.
-            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"data is not string or dictionary: %@. Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100 withHandler:nil];
+            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"data is not string or dictionary: %@. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100 withHandler:nil];
             jsonString = [NSString stringWithFormat:@"%@", pushData.data];
         }
         for (id<ISHCustomiseHandler> handler in StreetHawk.arrayCustomisedHandler)
@@ -310,11 +306,11 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
         return isCustomisedHandled;
     }
     BOOL shouldShowConfirmDialog = [pushData shouldShowConfirmDialog];
-    if (pushData.action == SHAction_OpenUrl)  //data is supposed to be url, for example https://www.streethawk.com
+    if (pushData.action == SHAction_OpenUrl)  //data is supposed to be url, for example https://www.google.com
     {
         if (pushData.data == nil || ![pushData.data isKindOfClass:[NSString class]] || ((NSString *)pushData.data).length == 0)
         {
-            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Open webpage with invalid url: %@. Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100/*ignore*/ withHandler:nil];
+            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Open webpage with invalid url: %@. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100/*ignore*/ withHandler:nil];
             pushData.isInAppSlide = NO; //wrong data cannot slide, just forcily make confirm dialog show, because if isInAppSlide=YES will show dialog when loading slide.
             //Notification data has error, App in BG sends pushresult=1; App in FG depends on confirm dialog.
             confirmAction = ^ {
@@ -381,8 +377,8 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
                         BOOL vcLaunched = [deepLinkingObj launchDeepLinkingVC:deeplinkingStr withPushData:pushData increaseGrowthClick:YES];
                         if (!vcLaunched)
                         {
-                            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Fail to create VC from \"%@\". Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100/*ignore*/ withHandler:nil];
-                            //Cannot launch vc, however still need to show confirm dialog in FG, and sends pushresult; in BG always sends pushresult=1.
+                            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Fail to create VC from \"%@\". Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100/*ignore*/ withHandler:nil];
+                            //Cannot launch vc, however still need to show confirm dialog in FG, and sends pushresult; in BG always sends pushresult=1. There was a discussion that not hide confirm dialog to hide error in this case.
                             if ([pushData shouldShowConfirmDialog])
                             {
                                 NSMutableDictionary *dictUserInfo = [NSMutableDictionary dictionary];
@@ -477,7 +473,6 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
                     }
                     else
                     {
-                        
                         appLink = (pushData.action == SHAction_RateApp) ? [NSString stringWithFormat:@"itms-apps://ax.itunes.apple.com/WebObjects/MZStore.woa/wa/viewContentsUserReviews?type=Purple+Software&id=%@", iTunesId] : [NSString stringWithFormat:@"itms-apps://itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=%@&mt=8", iTunesId];
                     }
                     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:appLink]];
@@ -486,7 +481,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
                 else
                 {
                     NSString *appDisplayName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-                    [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"App %@ try to open AppStore without setup itunes id. Push msgid: %ld.", appDisplayName, (long)pushData.msgID] forAssocId:0 withResult:100/*ignore*/ withHandler:nil];
+                    [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"App %@ try to open AppStore without setup itunes id. Push msgid: %@.", appDisplayName, pushData.msgID] forAssocId:nil withResult:100/*ignore*/ withHandler:nil];
                     //Notification data has error, App in BG sends pushresult=1; App in FG depends on confirm dialog.
                     [pushData sendPushResult:SHResult_Accept withHandler:nil];
                     SHLog(@"WARNING: Please setup iTunes Id in web console -> App Details -> App Summary.");
@@ -498,7 +493,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
     {
         if (pushData.data == nil || ![pushData.data isKindOfClass:[NSString class]] || ((NSString *)pushData.data).length == 0)
         {
-            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Call telephone with invalid number: %@. Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100/*ignore*/ withHandler:nil];
+            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Call telephone with invalid number: %@. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100/*ignore*/ withHandler:nil];
             //Notification data has error, App in BG sends pushresult=1; App in FG depends on confirm dialog.
             confirmAction = ^ {
                 [pushData sendPushResult:SHResult_Accept withHandler:nil];
@@ -548,7 +543,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
         }
         else
         {
-            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Fail to parse feedback string: \"%@\". Push msgid: %ld.", pushData.data, (long)pushData.msgID] forAssocId:0 withResult:100/*ignored*/ withHandler:nil];
+            [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Fail to parse feedback string: \"%@\". Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100/*ignored*/ withHandler:nil];
             //Cannot show feedback list, however still need to show confirm dialog in FG, and sends pushresult; in BG always sends pushresult=1.
             if ([pushData shouldShowConfirmDialog])
             {
@@ -570,7 +565,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
     {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"SH_LMBridge_UpdateBluetoothStatus" object:nil];
         NSInteger bluetoothStatus = [[[NSUserDefaults standardUserDefaults] objectForKey:SH_BEACON_BLUETOOTH] integerValue];
-        if ((pushData.isAppOnForeground/*is App from BG system setting maybe modified but bluetoothState is not updated on time yet. A good thing is it goes to direct action, and CBCentralManager can decide show dialog or not*/ && bluetoothStatus == CBCentralManagerStatePoweredOn/*if App in FG this is accurate*/))
+        if ((pushData.isAppOnForeground/*is App from BG system setting maybe modified but bluetoothState is not updated on time yet. A good thing is it goes to direct action, and CBCentralManager can decide show dialog or not*/ && bluetoothStatus == 5 /*CBCentralManagerStatePoweredOn, if App in FG this is accurate*/))
         {
             [pushData sendPushResult:SHResult_Accept withHandler:nil];
             return YES;  //stop handle
@@ -578,11 +573,7 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
         confirmAction = ^{
             [pushData sendPushResult:SHResult_Accept withHandler:nil];
             //show dialog which can direct to system's Bluetooth setting page
-            if ([CBCentralManager instancesRespondToSelector:@selector(initWithDelegate:queue:options:)])  //`options` since iOS 7.0, this push is to warning user to turn on Bluetooth for iBeacon, available since iOS 7.0.
-            {
-                CBCentralManager *tempManager = [[CBCentralManager alloc] initWithDelegate:nil queue:nil options:@{CBCentralManagerOptionShowPowerAlertKey: @(1/*show setting*/)}];
-                tempManager = nil;
-            }
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"SH_LMBridge_LaunchBluetoothSettings" object:nil];
         };
     }
     else if (pushData.action == SHAction_EnablePushMsg) //this also used for smart push, which can occur even when push is disabled.

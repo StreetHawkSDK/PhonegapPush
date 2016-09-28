@@ -33,7 +33,7 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
 @interface CBAutoScrollLabel ()
 
 @property (nonatomic, strong) NSArray *labels;
-@property (strong, nonatomic, readonly) UILabel *mainLabel;
+@property (nonatomic, strong, readonly) UILabel *mainLabel;
 @property (nonatomic, strong) UIScrollView *scrollView;
 
 @end
@@ -94,8 +94,14 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
 - (void)setFrame:(CGRect)frame {
     [super setFrame:frame];
 
-    [self refreshLabels];
-    [self applyGradientMaskForFadeLength:self.fadeLength enableFade:self.scrolling];
+    [self didChangeFrame];
+}
+
+// For autolayout
+- (void)setBounds:(CGRect)bounds {
+    [super setBounds:bounds];
+
+    [self didChangeFrame];
 }
 
 #pragma mark - Properties
@@ -177,6 +183,7 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
     EACH_LABEL(font, font)
 
     [self refreshLabels];
+    [self invalidateIntrinsicContentSize];
 }
 
 - (UIFont *)font {
@@ -211,6 +218,12 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
     return self.mainLabel.shadowOffset;
 }
 
+#pragma mark - Autolayout
+
+- (CGSize)intrinsicContentSize {
+    return CGSizeMake(0.0f, [self.mainLabel intrinsicContentSize].height);
+}
+
 #pragma mark - Misc
 
 - (void)observeApplicationNotifications {
@@ -227,11 +240,14 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
                                                  name:UIApplicationDidBecomeActiveNotification
                                                object:nil];
 
+#ifndef TARGET_OS_TV
     // refresh labels when interface orientation is changed
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(onUIApplicationDidChangeStatusBarOrientationNotification:)
                                                  name:UIApplicationDidChangeStatusBarOrientationNotification
                                                object:nil];
+#endif
+
 }
 
 - (void)enableShadow {
@@ -260,7 +276,7 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
 
     // animate the scrolling
     NSTimeInterval duration = labelWidth / self.scrollSpeed;
-    [UIView animateWithDuration:duration delay:self.pauseInterval options:self.animationOptions | UIViewAnimationOptionAllowUserInteraction animations: ^{
+    [UIView animateWithDuration:duration delay:self.pauseInterval options:self.animationOptions | UIViewAnimationOptionAllowUserInteraction animations:^{
          // adjust offset
          self.scrollView.contentOffset = (doScrollLeft ? CGPointMake(labelWidth + self.labelSpacing, 0) : CGPointZero);
      } completion: ^(BOOL finished) {
@@ -280,18 +296,18 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
     __block float offset = 0;
 
     each_object(self.labels, ^(UILabel *label) {
-                    [label sizeToFit];
+        [label sizeToFit];
 
-                    CGRect frame = label.frame;
-                    frame.origin = CGPointMake(offset, 0);
-                    frame.size.height = CGRectGetHeight(self.bounds);
-                    label.frame = frame;
+        CGRect frame = label.frame;
+        frame.origin = CGPointMake(offset, 0);
+        frame.size.height = CGRectGetHeight(self.bounds);
+        label.frame = frame;
 
-                    // Recenter label vertically within the scroll view
-                    label.center = CGPointMake(label.center.x, roundf(self.center.y - CGRectGetMinY(self.frame)));
+        // Recenter label vertically within the scroll view
+        label.center = CGPointMake(label.center.x, roundf(self.center.y - CGRectGetMinY(self.frame)));
 
-                    offset += CGRectGetWidth(label.bounds) + self.labelSpacing;
-                });
+        offset += CGRectGetWidth(label.bounds) + self.labelSpacing;
+    });
 
     self.scrollView.contentOffset = CGPointZero;
     [self.scrollView.layer removeAllAnimations];
@@ -305,7 +321,7 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
 
         EACH_LABEL(hidden, NO)
 
-        [self applyGradientMaskForFadeLength : self.fadeLength enableFade : self.scrolling];
+        [self applyGradientMaskForFadeLength:self.fadeLength enableFade:self.scrolling];
 
         [self scrollLabelIfNeeded];
     } else {
@@ -323,6 +339,12 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
 
         [self applyGradientMaskForFadeLength:0 enableFade:NO];
     }
+}
+
+// bounds or frame has been changeds
+- (void)didChangeFrame {
+    [self refreshLabels];
+    [self applyGradientMaskForFadeLength:self.fadeLength enableFade:self.scrolling];
 }
 
 #pragma mark - Gradient
@@ -370,6 +392,7 @@ static void each_object(NSArray *objects, void (^block)(id object)) {
         // apply calculations to mask
         gradientMask.locations = @[@0, leftFadePoint, rightFadePoint, @1];
 
+        // don't animate the mask change
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         self.layer.mask = gradientMask;
