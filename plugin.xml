@@ -2,7 +2,7 @@
 <plugin id="com.streethawk.push" version="1.8.1" xmlns="http://apache.org/cordova/ns/plugins/1.0"
 	xmlns:android="http://schemas.android.com/apk/res/android">
 	<name>StreetHawkPush</name>
-	<description> StreetHawk SDK plugin for sending push notification to your applications</description>	    
+	<description>StreetHawk SDK plugin for sending push notification to your applications</description>	    
     <license>Apache 2.0</license>
     <keywords>push,messaging,deeplinking,referral,analytics,geofencing,beacons,marketing,automation,organic growth,feeds</keywords>	
 	<platform name="android">
@@ -110,8 +110,6 @@
         <source-file src="src/ios/SDK/Notification/Publish/SHApp+Notification.m" />
         <header-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.h" />
         <source-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.m" />
-        <header-file src="src/ios/SDK/ThirdParty/Emojione/Emojione.h" />
-        <source-file src="src/ios/SDK/ThirdParty/Emojione/Emojione.m" />
         
         <!-- Add frameworks -->       
         <framework src="QuartzCore.framework" />
