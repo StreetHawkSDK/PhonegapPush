@@ -12,7 +12,7 @@
 			</feature>
 		</config-file>
 
-		<framework src="com.google.android.gms:play-services-gcm:9.6.1" />
+		<framework src="com.google.android.gms:play-services-gcm:+" />
 			
 			<config-file parent="/manifest" target="AndroidManifest.xml">
 		  
