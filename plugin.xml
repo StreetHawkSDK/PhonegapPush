@@ -1,129 +1,78 @@
-<?xml version='1.0' encoding='utf-8'?>
-<plugin id="com.streethawk.push" version="1.8.4" xmlns="http://apache.org/cordova/ns/plugins/1.0"
-	xmlns:android="http://schemas.android.com/apk/res/android">
-	<name>StreetHawkPush</name>
-	<description>StreetHawk SDK plugin for sending push notification to your applications</description>	    
-    <license>Apache 2.0</license>
-    <keywords>push,messaging,deeplinking,referral,analytics,geofencing,beacons,marketing,automation,organic growth,feeds</keywords>	
+<?xml version="1.0" encoding="utf-8"?>
+<plugin id="com.streethawk.push" version="1.8.4" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+	<name>
+		StreetHawkPush
+	</name>
+	<description>
+		StreetHawk SDK plugin for sending push notification to your applications
+	</description>
+	<license>
+		Apache 2.0
+	</license>
+	<keywords>
+		push,messaging,deeplinking,referral,analytics,geofencing,beacons,marketing,automation,organic growth,feeds
+	</keywords>
 	<platform name="android">
 		<config-file parent="/*" target="res/xml/config.xml">
 			<feature name="push">
-				<param name="android-package" value="com.streethawk.push.push"/>
+				<param name="android-package" value="com.streethawk.push.push" />
 			</feature>
 		</config-file>
-
-		<framework src="com.google.android.gms:play-services-gcm:9.6.1" />
-			
-			<config-file parent="/manifest" target="AndroidManifest.xml">
-		  
-		   <permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE"
-				android:protectionLevel="signature"/>
+		<framework src="com.google.android.gms:play-services-gcm:10.2.1" />
+		<framework src="com.streethawk.phonegap:push:1.8.5" />
+		<config-file parent="/manifest" target="AndroidManifest.xml">
+			<permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" android:protectionLevel="signature" />
 			<uses-permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" />
-		   <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
-    		<uses-permission android:name="android.permission.WAKE_LOCK" />
-    		<uses-permission android:name="com.htc.launcher.permission.READ_SETTINGS" />
-    		<uses-permission android:name="com.htc.launcher.permission.UPDATE_SHORTCUT" />
-    		<uses-permission android:name="com.sonyericsson.home.permission.BROADCAST_BADGE" />
-    		<uses-permission android:name="com.sec.android.provider.badge.permission.READ" />
-    		<uses-permission android:name="com.sec.android.provider.badge.permission.WRITE" />
-		 
-    		</config-file>
-		   <config-file parent="/manifest/application" target="AndroidManifest.xml">
-		   <activity
-            android:name="com.streethawk.library.push.SHFeedbackActivity"
-            android:label="Feedback"></activity>
-        <service
-            android:name="com.streethawk.library.push.SHGcmListenerService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
-            </intent-filter>
-        </service>
-        
-         <receiver
-            android:name="com.google.android.gms.gcm.GcmReceiver"
-            android:permission="com.google.android.c2dm.permission.SEND" >
-            <intent-filter>
-                <action android:name="com.google.android.c2dm.intent.REGISTRATION" />
-                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
-                <category android:name="$PACKAGE_NAME" />
-            </intent-filter>
-        </receiver>
-
-
-        <receiver android:name="com.streethawk.library.push.PushNotificationBroadcastReceiver">
-            <intent-filter>
-                <action android:name="com.streethawk.intent.action.pushnotification" />
-                <action android:name="com.streethawk.intent.action.gcm.STREETHAWK_DECLINED" />
-                <action android:name="com.streethawk.intent.action.gcm.STREETHAWK_POSTPONED" />
-                <action android:name="com.streethawk.intent.action.gcm.STREETHAWK_ACCEPTED" />
-                <action android:name="com.streethawk.intent.action.APP_STATUS_NOTIFICATION" />
-                <action android:name="com.streethawk.intent.action.MSG_FROM_CORE" />
-            </intent-filter>
-        </receiver>
-
-        <service
-            android:name="com.streethawk.library.push.SHInstanceIDListenerService"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.iid.InstanceID"/>
-            </intent-filter>
-        </service>
-        
-       <service
-            android:name="com.streethawk.push.PushWrapper"
-            android:enabled="true"
-            android:exported="true" >
-        </service>
-        
-		   </config-file>   
-		<source-file src="src/android/streethawkpush.jar" target-dir="libs/"/>
-		<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk"/>
+		</config-file>
+		<config-file parent="/manifest/application" target="AndroidManifest.xml">
+			<receiver android:name="com.google.android.gms.gcm.GcmReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+				<intent-filter>
+					<action android:name="com.google.android.c2dm.intent.REGISTRATION" />
+					<action android:name="com.google.android.c2dm.intent.RECEIVE" />
+					<category android:name="$PACKAGE_NAME" />
+				</intent-filter>
+			</receiver>
+			<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
+		</config-file>
+		<platform name="ios">
+			<!-- Enable preprocessor macro SH_FEATURE_NOTIFICATION -->
+			<hook type="after_plugin_install" src="src/ios/Script/enable_feature.js" />
+			<hook type="before_plugin_uninstall" src="src/ios/Script/disable_feature.js" />
+			<!-- Plugin native SDK -->
+			<header-file src="src/ios/SDK/Notification/Internal/SHAlertSettingsViewController.h" />
+			<source-file src="src/ios/SDK/Notification/Internal/SHAlertSettingsViewController.m" />
+			<header-file src="src/ios/SDK/Notification/Internal/SHNotificationHandler.h" />
+			<source-file src="src/ios/SDK/Notification/Internal/SHNotificationHandler.m" />
+			<header-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.h" />
+			<source-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.m" />
+			<header-file src="src/ios/SDK/Notification/Private/SHInteractiveButtons.h" />
+			<source-file src="src/ios/SDK/Notification/Private/SHInteractiveButtons.m" />
+			<header-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.h" />
+			<source-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.m" />
+			<header-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.h" />
+			<source-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.m" />
+			<header-file src="src/ios/SDK/Notification/Private/SHSlideWebViewController.h" />
+			<source-file src="src/ios/SDK/Notification/Private/SHSlideWebViewController.m" />
+			<header-file src="src/ios/SDK/Notification/Publish/InteractivePush.h" />
+			<source-file src="src/ios/SDK/Notification/Publish/InteractivePush.m" />
+			<header-file src="src/ios/SDK/Notification/Publish/ISHCustomiseHandler.h" />
+			<header-file src="src/ios/SDK/Notification/Publish/ISHPhonegapObserver.h" />
+			<header-file src="src/ios/SDK/Notification/Publish/SHApp+Notification.h" />
+			<source-file src="src/ios/SDK/Notification/Publish/SHApp+Notification.m" />
+			<header-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.h" />
+			<source-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.m" />
+			<!-- Add frameworks -->
+			<framework src="QuartzCore.framework" />
+		</platform>
+		<info>
+			StreetHawk Push plugin depends on StreetHawk core plugin.
+			Install core plugin by using command
+			
+			cordova plugin add streethawkanalytics --variable APP_KEY=APP_KEY --variable URL_SCHEME=SCHEME
+			
+			Note: In the above command replace
+			APP_KEY with your application's app_key.
+			SCHEME with your application's deeplink scheme.
+		</info>
 	</platform>
-	<platform name="ios">
-	
-		<!-- Enable preprocessor macro SH_FEATURE_NOTIFICATION -->
-		<hook type="after_plugin_install" src="src/ios/Script/enable_feature.js" />
-		<hook type="before_plugin_uninstall" src="src/ios/Script/disable_feature.js" />
-               
-        <!-- Plugin native SDK -->
-        <header-file src="src/ios/SDK/Notification/Internal/SHAlertSettingsViewController.h" />
-        <source-file src="src/ios/SDK/Notification/Internal/SHAlertSettingsViewController.m" />
-        <header-file src="src/ios/SDK/Notification/Internal/SHNotificationHandler.h" />
-        <source-file src="src/ios/SDK/Notification/Internal/SHNotificationHandler.m" />  
-        <header-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.h" />
-        <source-file src="src/ios/SDK/Notification/Internal/SHSlideViewController.m" />
-        <header-file src="src/ios/SDK/Notification/Private/SHInteractiveButtons.h" />
-        <source-file src="src/ios/SDK/Notification/Private/SHInteractiveButtons.m" />
-        <header-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.h" />
-        <source-file src="src/ios/SDK/Notification/Private/SHNotificationBridge.m" />
-        <header-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.h" />
-        <source-file src="src/ios/SDK/Notification/Private/SHPushDataCallback.m" />
-        <header-file src="src/ios/SDK/Notification/Private/SHSlideWebViewController.h" />
-        <source-file src="src/ios/SDK/Notification/Private/SHSlideWebViewController.m" />
-        <header-file src="src/ios/SDK/Notification/Publish/InteractivePush.h" />
-        <source-file src="src/ios/SDK/Notification/Publish/InteractivePush.m" />
-        <header-file src="src/ios/SDK/Notification/Publish/ISHCustomiseHandler.h" />
-        <header-file src="src/ios/SDK/Notification/Publish/ISHPhonegapObserver.h" />
-        <header-file src="src/ios/SDK/Notification/Publish/SHApp+Notification.h" />
-        <source-file src="src/ios/SDK/Notification/Publish/SHApp+Notification.m" />
-        <header-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.h" />
-        <source-file src="src/ios/SDK/ThirdParty/CBAutoScrollLabel/CBAutoScrollLabel.m" />
-        
-        <!-- Add frameworks -->       
-        <framework src="QuartzCore.framework" />
-        
-	</platform>
-	<info>
-	 StreetHawk Push plugin depends on StreetHawk core plugin. 
-	 Install core plugin by using command
-	  
-	 cordova plugin add streethawkanalytics --variable APP_KEY=APP_KEY --variable URL_SCHEME=SCHEME
-	
-	Note: In the above command replace 
-	APP_KEY with your application's app_key.
-	SCHEME with your application's deeplink scheme.
-	
-	</info>
 </plugin>
