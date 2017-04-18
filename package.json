@@ -1,0 +1,20 @@
+{
+  "name": "streethawkpush",
+  "version": "1.8.4",
+  "description": "## Introduction The repository hosts Phonegap plugin of StreetHawk SDK's Push module. The plugin is required if you wish to send push notifications to your application.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StreetHawkSDK/PhonegapPush.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/StreetHawkSDK/PhonegapPush/issues"
+  },
+  "homepage": "https://github.com/StreetHawkSDK/PhonegapPush#readme"
+}
