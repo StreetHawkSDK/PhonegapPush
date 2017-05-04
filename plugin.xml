@@ -34,6 +34,7 @@
 			</receiver>
 			<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
 		</config-file>
+		</platform>
 		<platform name="ios">
 			<!-- Enable preprocessor macro SH_FEATURE_NOTIFICATION -->
 			<hook type="after_plugin_install" src="src/ios/Script/enable_feature.js" />
@@ -74,5 +75,4 @@
 			APP_KEY with your application's app_key.
 			SCHEME with your application's deeplink scheme.
 		</info>
-	</platform>
 </plugin>
