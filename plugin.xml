@@ -32,8 +32,8 @@
 					<category android:name="$PACKAGE_NAME" />
 				</intent-filter>
 			</receiver>
-			<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
 		</config-file>
+		<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
 		</platform>
 		<platform name="ios">
 			<!-- Enable preprocessor macro SH_FEATURE_NOTIFICATION -->
