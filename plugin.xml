@@ -19,7 +19,7 @@
 			</feature>
 		</config-file>
 		<framework src="com.google.android.gms:play-services-gcm:10.2.1" />
-		<framework src="com.streethawk.phonegap:push:1.8.5" />
+		<framework src="src/android/push.gradle" custom="true" type="gradleReference" />
 		<config-file parent="/manifest" target="AndroidManifest.xml">
 			<permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" android:protectionLevel="signature" />
 			<uses-permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" />
