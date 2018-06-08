@@ -20,7 +20,6 @@
 #import "SHApp+Notification.h" //for `StreetHawk`
 #import "SHAlertView.h" //for confirm dialog
 #import "SHUtils.h" //for shPresentErrorAlert
-#import "SHPresentDialog.h" //for present modal dialog
 
 @interface SHAlertSettingsViewController ()
 
@@ -116,7 +115,7 @@
             self.buttonCancel.enabled = YES;
             if (error == nil)
             {
-                [self dismissModalDialogViewController];
+                [self dismissOnTop];
             }
         });
     }];
@@ -124,7 +123,7 @@
 
 - (IBAction)buttonCancelClicked:(id)sender
 {
-    [self dismissModalDialogViewController];
+    [self dismissOnTop];
 }
 
 #pragma mark - private functions
