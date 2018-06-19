@@ -19,7 +19,7 @@
 			</feature>
 		</config-file>
 		<framework src="com.google.android.gms:play-services-gcm:10.2.1" />
-		<framework src="com.streethawk.phonegap:push:1.8.5" />
+		<framework src="src/android/push.gradle" custom="true" type="gradleReference" />
 		<config-file parent="/manifest" target="AndroidManifest.xml">
 			<permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" android:protectionLevel="signature" />
 			<uses-permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" />
@@ -32,8 +32,9 @@
 					<category android:name="$PACKAGE_NAME" />
 				</intent-filter>
 			</receiver>
-			<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
 		</config-file>
+		<source-file src="src/android/PushWrapper.java" target-dir="src/com/streethawk" />
+		</platform>
 		<platform name="ios">
 			<!-- Enable preprocessor macro SH_FEATURE_NOTIFICATION -->
 			<hook type="after_plugin_install" src="src/ios/Script/enable_feature.js" />
@@ -74,5 +75,4 @@
 			APP_KEY with your application's app_key.
 			SCHEME with your application's deeplink scheme.
 		</info>
-	</platform>
 </plugin>
