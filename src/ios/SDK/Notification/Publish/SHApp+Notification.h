@@ -90,6 +90,11 @@ extern NSString * const SHNMNotification_kPayload; //string @"Payload", get NSDi
 -(void)registerForNotificationAndNotifyServer;
 
 /**
+ Function setSHPushDenied used for setting tag sh_push_denied, as install attribute revoke set in function registerForNotificationAndNotifyServer has been deprecated. now system using sh_push_denied to identify whether an install can receive push or not. This tag will be true/false value, and only be true when sh push module installed and system remote notification is enabled.
+ */
+-(void)setSHPushDenied;
+
+/**
  Handle user notification settings callback. Call this in customer App's UIApplicationDelegate if NOT auto-integrate. If `StreetHawk.autoIntegrateAppDelegate = YES;` make sure NOT call this otherwise cause dead loop. Code snippet:
  
  `- (void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings`
@@ -165,7 +170,10 @@ extern NSString * const SHNMNotification_kPayload; //string @"Payload", get NSDi
  @param needComplete Whether need to call `completionHandler` when task finish. If `completionHandler`=nil this does not matter YES or NO.
  @param completionHandler Pass in system's to finish when task is done.
  */
-- (void)handleRemoteNotification:(NSDictionary *)userInfo withActionId:(NSString *)identifier needComplete:(BOOL)needComplete completionHandler:(void (^)())completionHandler NS_AVAILABLE_IOS(8_0);
+- (void)handleRemoteNotification:(NSDictionary *)userInfo
+                    withActionId:(NSString *)identifier
+                    needComplete:(BOOL)needComplete
+               completionHandler:(void (^)(void))completionHandler NS_AVAILABLE_IOS(8_0);
 
 /**
  Customer Application should implement this in UIApplicationDelegate to forward handling to StreetHawk library if NOT auto-integrate. If `StreetHawk.autoIntegrateAppDelegate = YES;` make sure NOT call this otherwise cause dead loop. Code snippet:
@@ -192,10 +200,14 @@ extern NSString * const SHNMNotification_kPayload; //string @"Payload", get NSDi
  
  @param notification Object passed in by local notification.
  @param identifier Action button's identifier.
- @param needComplete Whether need to call `completionHandler` when task finish. If `completionHandler`=nil this does not matter YES or NO.
+ @param needComplete Whether need to call `completionHandler` when task finish.
+                     If `completionHandler`=nil this does not matter YES or NO.
  @param completionHandler Pass in system's to finish when task is done.
  */
-- (void)handleLocalNotification:(UILocalNotification *)notification withActionId:(NSString *)identifier needComplete:(BOOL)needComplete completionHandler:(void (^)())completionHandler NS_AVAILABLE_IOS(8_0);
+- (void)handleLocalNotification:(UILocalNotification *)notification
+                   withActionId:(NSString *)identifier
+                   needComplete:(BOOL)needComplete
+              completionHandler:(void (^)(void))completionHandler NS_AVAILABLE_IOS(8_0);
 
 /**
  Set badge number on Application icon. In iOS 8 it needs to check permission, if not have permission return NO.

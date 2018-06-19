@@ -273,32 +273,31 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
     if (pushData.action == SHAction_CustomJson)
     {
         BOOL isCustomisedHandled = NO;
-        NSString *jsonString = nil;
+        NSDictionary *jsonDict = nil;
         if ([pushData.data isKindOfClass:[NSString class]])
         {
-            jsonString = (NSString *)pushData.data;
+            jsonDict = shParseObjectToDict(pushData.data);
+            if (jsonDict == nil)
+            {
+                jsonDict = @{@"value": NONULL((NSString *)pushData.data)};
+            }
         }
         else if ([pushData.data isKindOfClass:[NSDictionary class]])
         {
-            jsonString = shSerializeObjToJson(pushData.data);
-            if (shStrIsEmpty(jsonString))
-            {
-                [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Error: Meet error when serialize %@ to json. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100 withHandler:nil];
-                 jsonString = [NSString stringWithFormat:@"%@", pushData.data]; //still try to pass to customer handler.
-            }            
+            jsonDict = (NSDictionary *)pushData.data;
         }
         else
         {
             NSAssert(NO, @"data is not string or dictionary: %@.", pushData.data);
-            //Although this error logline sent, it will continue to handle jsonString and send push result.
+            //Although this error logline sent, it will continue to handle jsonDict and send push result.
             [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"data is not string or dictionary: %@. Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100 withHandler:nil];
-            jsonString = [NSString stringWithFormat:@"%@", pushData.data];
+            jsonDict = @{@"value": [NSString stringWithFormat:@"%@", pushData.data]};
         }
         for (id<ISHCustomiseHandler> handler in StreetHawk.arrayCustomisedHandler)
         {
             if ([handler respondsToSelector:@selector(shRawJsonCallbackWithTitle:withMessage:withJson:)]) //implementation is optional
             {
-                [handler shRawJsonCallbackWithTitle:pushData.title withMessage:pushData.message withJson:jsonString];
+                [handler shRawJsonCallbackWithTitle:pushData.title withMessage:pushData.message withJson:jsonDict];
                 isCustomisedHandled = YES;
             }
         }
@@ -371,11 +370,14 @@ const NSString *Push_Payload_SupressDialog = @"n"; //if payload has "n", regardl
                 }
                 if (!handledByCustomer)
                 {
-                    if (StreetHawk.developmentPlatform == SHDevelopmentPlatform_Native || StreetHawk.developmentPlatform == SHDevelopmentPlatform_Xamarin)
+                    SHDeepLinking *deepLinkingObj = [[SHDeepLinking alloc] init];
+                    NSURL *deeplinkingUrl = [NSURL URLWithString:deeplinkingStr];
+                    if ([deepLinkingObj isSupportedDeeplinkingUrl:deeplinkingUrl])
                     {
-                        SHDeepLinking *deepLinkingObj = [[SHDeepLinking alloc] init];
-                        BOOL vcLaunched = [deepLinkingObj launchDeepLinkingVC:deeplinkingStr withPushData:pushData increaseGrowthClick:YES];
-                        if (!vcLaunched)
+                        BOOL handledBySDK = [deepLinkingObj processDeeplinkingUrl:deeplinkingUrl
+                                                                 withPushData:pushData
+                                                           withIncreaseGrowth:YES];
+                        if (!handledBySDK)
                         {
                             [StreetHawk sendLogForCode:LOG_CODE_ERROR withComment:[NSString stringWithFormat:@"Fail to create VC from \"%@\". Push msgid: %@.", pushData.data, pushData.msgID] forAssocId:nil withResult:100/*ignore*/ withHandler:nil];
                             //Cannot launch vc, however still need to show confirm dialog in FG, and sends pushresult; in BG always sends pushresult=1. There was a discussion that not hide confirm dialog to hide error in this case.
