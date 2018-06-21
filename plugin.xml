@@ -18,7 +18,7 @@
 				<param name="android-package" value="com.streethawk.push.push" />
 			</feature>
 		</config-file>
-		<framework src="com.google.android.gms:play-services-gcm:10.2.1" />
+		<framework src="com.google.android.gms:play-services-gcm:11.0.4" />
 		<framework src="src/android/push.gradle" custom="true" type="gradleReference" />
 		<config-file parent="/manifest" target="AndroidManifest.xml">
 			<permission android:name="$PACKAGE_NAME.permission.C2D_MESSAGE" android:protectionLevel="signature" />
